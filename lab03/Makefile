@@ -1,7 +1,8 @@
+PWD := $(shell pwd)
+
 all:
-	gcc -o mazetest maze.c libmaze.c
 	gcc -shared -fPIC -o libmaze.so libmaze.c -ldl
-	LD_PRELOAD=libmaze.so ./mazetest
+	LD_LIBRARY_PATH=. ./maze
 
 asm:
 	gcc main.c -o main

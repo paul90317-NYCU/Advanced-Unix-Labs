@@ -1,3 +1,6 @@
+# lab03
+## maze.c
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,4 +20,4 @@ int main() {
 	printf("\nNo no no ...\n");
 	return 0;
 }
-
+```
