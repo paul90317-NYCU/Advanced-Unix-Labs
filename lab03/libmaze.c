@@ -2,25 +2,49 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <dlfcn.h>
 
 #include "libmaze.h"
+#include "elf.h"
 
-static void * __stored_ptr = NULL;
+typedef void (*move_func_t)(maze_t *);
+typedef maze_t *(*maze_load_t)(const char *);
+typedef void *(*maze_get_ptr_t)();
+
+size_t pagesize;
+
+int move_list[1200];
+move_func_t move_dirs[4];
+void *main_handle = NULL;
+
+void preassign_got(int i){
+	move_func_t *got_entry = maze_get_ptr() + elf_moves[i];
+	void *get_entry_page = (void *)((size_t) got_entry & ~(pagesize - 1));
+	if(mprotect(get_entry_page, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
+		perror("mprotect");
+	*got_entry = move_dirs[move_list[i]];
+}
 
 int
 maze_init() {
-	fprintf(stderr, "MAZE: library init - stored pointer = %p.\n", __stored_ptr);
+	fprintf(stderr, "MAZE: library init - stored pointer = %p.\n", maze_get_ptr());
+	pagesize = sysconf(_SC_PAGE_SIZE);
+	main_handle = dlopen(NULL, RTLD_LAZY);
+	if (!main_handle)
+		perror(dlerror());
+	char *move_dirs_name[] = {"move_up", "move_down", "move_left", "move_right"};
+	for(int i = 0; i < 4; ++i) {
+		move_dirs[i] = dlsym(main_handle, move_dirs_name[i]);
+		if(!move_dirs[i])
+			perror(dlerror());
+		void *get_entry_page = (void *)((size_t) move_dirs[i] & ~(pagesize - 1));
+		if(mprotect(get_entry_page, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
+			perror("mprotect");
+	}
+	dlclose(main_handle);
 	return 0;
-}
-
-void
-maze_set_ptr(void *ptr) {
-	__stored_ptr = ptr;
-}
-
-void *
-maze_get_ptr() {
-	return __stored_ptr;
 }
 
 void DFS(maze_t *mz);
@@ -65,51 +89,15 @@ err_quit:
 	return NULL;
 }
 
-void
-maze_free(maze_t *mz) {
-	free(mz);
-}
-
 static int _dirx[] = { 0, 0, -1, 1 };
 static int _diry[] = { -1, 1, 0, 0 };
 
-static void
-move_dir(maze_t *mz, int d) {
-	int nx = mz->cx + _dirx[d];
-	int ny = mz->cy + _diry[d];
-	//
-	if(mz->blk[ny][nx] != 0) return;
-	mz->cx = nx;
-	mz->cy = ny;
-	// reach the END
-	if(mz->cx == mz->ex && mz->cy == mz->ey) {
-		printf("\nBingo!\n");
-		exit(0);
-	}
-}
-
-void move_up(maze_t *mz)     { move_dir(mz, 0); }
-void move_down(maze_t *mz)   { move_dir(mz, 1); }
-void move_left(maze_t *mz)   { move_dir(mz, 2); }
-void move_right(maze_t *mz)  { move_dir(mz, 3); }
-void move_random(maze_t *mz) { move_dir(mz, rand() % 4); }
-
 int move_list[1200];
 int move_count;
-void perform_move(maze_t *mz, int i){
-    if(i >= move_count)
-        return;
-    move_dir(mz, move_list[i]);
-	printf("%d ", move_list[i]);
-    //printf("%d %d %d %d\n",mz->cx, mz->cy, end_x, end_y);
-    if(mz->cx == mz->ex && mz->cy == mz->ey){
-        puts("Bingo!");
-    }
-}
-
 
 // Depth-First Search 
 int finded;
+int move_count;
 void dfs(maze_t *mz, int y, int x) {
     if (move_count == 1200)
         return;
@@ -142,10 +130,8 @@ void dfs(maze_t *mz, int y, int x) {
 void DFS(maze_t *mz){
 	finded = 0;
     move_count = 0;
-	dfs(mz, mz->sy, mz->sx); 
+	dfs(mz, mz->sy, mz->sx);
+	for(int i = 0; i < move_count; ++i){
+		preassign_got(i);
+	}
 }
-
-#define MOVE(n)	void move_##n(maze_t *mz) { perform_move(mz, n - 1); }
-#include "moves.c"
-#undef MOVE
-
