@@ -25,20 +25,22 @@ else:
     r = remote('up.zoolab.org', port)
 
 asm_code = """
-mov rax, 0x0000000021646c72
-push rax
-mov rax, 0x6f57206f6c6c6548
-push rax
+    jmp msg_call
+main:
+    pop rsi
+    mov rax, 1
+    mov rdi, 1
+    mov rdx, 13
+    syscall
 
-mov rax, 0x1
-mov rdi, 0x1
-mov rsi, rsp
-mov rdx, 12
-syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall
 
-mov rax, 0x3c
-mov rdi, 0x0
-syscall
+msg_call:
+    call main
+msg:
+    .ascii "Hello, World!"
 """
 
 sc = asm(asm_code, arch='amd64')
