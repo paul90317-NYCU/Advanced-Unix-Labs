@@ -123,6 +123,9 @@ int main()
   int tracee_status;
   struct user_regs_struct regs;
 
+  uint64_t breaks[100] = {0};
+  int n_breaks = 0;
+
   char *line = NULL;
   size_t line_size = 0;
   char *argv[100];
@@ -139,7 +142,7 @@ int main()
       argv[i] = __strtok_r(argv[i], " \n\r", &argv[i + 1]);
     }
 
-    if(!argv[0])
+    if (!argv[0])
       continue;
 
     if (!strcmp(argv[0], "load"))
@@ -175,14 +178,70 @@ int main()
     {
       if (!argv[1])
         continue;
+      errno = 0;
       uint64_t addr = strtoull(argv[1], NULL, 16);
       if (errno)
         continue;
 
+      breaks[n_breaks++] = addr;
       long data = ptrace_peektext(tracee, addr);
       ((uint8_t *)&data)[0] = INT3;
       ptrace_poketext(tracee, addr, data);
       printf("** set a breakpoint at %p.\n", (void *)addr);
+      continue;
+    }
+
+    if (!strcmp(argv[0], "delete"))
+    {
+      if (!argv[1])
+        continue;
+      errno = 0;
+      int break_num = strtoull(argv[1], NULL, 10);
+      if (errno)
+        continue;
+
+      if (breaks[break_num])
+      {
+        printf("** delete breakpoint %d.\n", break_num);
+        long data = ptrace_peektext(tracee, breaks[break_num]);
+        ((uint8_t *)&data)[0] = text[breaks[break_num] - offset];
+        ptrace_poketext(tracee, breaks[break_num], data);
+        breaks[break_num] = 0;
+      }
+      else
+      {
+        printf("** breakpoint %d does not exist.\n", break_num);
+      }
+
+      continue;
+    }
+
+    if (!strcmp(argv[0], "info"))
+    {
+      if (!argv[1])
+        continue;
+      if (!strcmp(argv[1], "break"))
+      {
+        bool flag = false;
+        for (int i = 0; i < n_breaks; ++i)
+          if (breaks[i])
+          {
+            flag = true;
+            break;
+          }
+
+        if (!flag)
+        {
+          puts("** no breakpoints.");
+          continue;
+        }
+        printf("%-10s %-10s\n", "Num", "Address");
+        for (int i = 0; i < n_breaks; ++i)
+          if (breaks[i])
+            printf("%-10d %-10p\n", i, (void *)breaks[i]);
+
+        continue;
+      }
       continue;
     }
 
@@ -257,6 +316,7 @@ int main()
     {
       if (!argv[1])
         continue;
+      errno = 0;
       uint64_t rip = strtoull(argv[1], NULL, 16);
       if (errno)
         continue;
@@ -270,7 +330,7 @@ int main()
 
     printf("** unknown command [%s].\n", argv[0]);
   }
-  printf("** the target program terminated.\n");
+  puts("** the target program terminated.");
 
   return 0;
 }
