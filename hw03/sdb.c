@@ -112,30 +112,6 @@ static void disassemble(uint64_t rip)
   }
 }
 
-int wait_tracee_stop(pid_t tracee)
-{
-  int status = 0;
-  struct user_regs_struct regs;
-
-  waitpid(tracee, &status, 0);
-  if (WIFSTOPPED(status))
-  {
-    ptrace_getregs(tracee, &regs);
-    long last_ins = ptrace_peektext(tracee, regs.rip - 1);
-
-    if (((uint8_t *)&last_ins)[0] == INT3)
-    {
-      --regs.rip;
-      printf("** hit a breakpoint %p.\n", (void *)regs.rip);
-      ((uint8_t *)&last_ins)[0] = text[regs.rip - offset];
-      ptrace_poketext(tracee, regs.rip, last_ins);
-      ptrace_setregs(tracee, &regs);
-    }
-    disassemble(regs.rip);
-  }
-  return status;
-}
-
 int main(int argc, char *argv[])
 {
   if (argc < 2)
@@ -176,15 +152,15 @@ int main(int argc, char *argv[])
 
   char *line = NULL;
   size_t line_size = 0;
-  
-  while (!WIFEXITED(tracee_status))
+
+  for (;;)
   {
     printf("(sdb) ");
-    if(getline(&line, &line_size, stdin) == -1)
+    if (getline(&line, &line_size, stdin) == -1)
       return 0;
-      
+
     char *tok = __strtok_r(line, " \n\r", &line);
-    if(!tok)
+    if (!tok)
       continue;
 
     if (!strcmp(tok, "break") && *line)
@@ -195,21 +171,85 @@ int main(int argc, char *argv[])
       long data = ptrace_peektext(tracee, addr);
       ((uint8_t *)&data)[0] = INT3;
       ptrace_poketext(tracee, addr, data);
-      printf("** set a breakpoint at %p\n", (void *)addr);
+      printf("** set a breakpoint at %p.\n", (void *)addr);
       continue;
     }
 
     if (!strcmp(tok, "si"))
     {
-      ptrace_singlestep(tracee);
-      tracee_status = wait_tracee_stop(tracee);
+      ptrace_getregs(tracee, &regs);
+      long next_ins = ptrace_peektext(tracee, regs.rip);
+      if (((uint8_t *)&next_ins)[0] == INT3)
+      {
+        ((uint8_t *)&next_ins)[0] = text[regs.rip - offset];
+        ptrace_poketext(tracee, regs.rip, next_ins);
+
+        ptrace_setregs(tracee, &regs);
+        ptrace_singlestep(tracee);
+        waitpid(tracee, &tracee_status, 0);
+        if (WIFEXITED(tracee_status))
+          break;
+
+        ((uint8_t *)&next_ins)[0] = INT3;
+        ptrace_poketext(tracee, regs.rip, next_ins);
+      }
+      else
+      {
+        ptrace_singlestep(tracee);
+        waitpid(tracee, &tracee_status, 0);
+        if (WIFEXITED(tracee_status))
+          break;
+      }
+
+      ptrace_getregs(tracee, &regs);
+
+      next_ins = ptrace_peektext(tracee, regs.rip);
+      if (((uint8_t *)&next_ins)[0] == INT3)
+        printf("** hit a breakpoint %p.\n", (void *)regs.rip);
+
+      disassemble(regs.rip);
       continue;
     }
 
     if (!strcmp(tok, "cont"))
     {
+      ptrace_getregs(tracee, &regs);
+      long next_ins = ptrace_peektext(tracee, regs.rip);
+      if (((uint8_t *)&next_ins)[0] == INT3)
+      {
+        ((uint8_t *)&next_ins)[0] = text[regs.rip - offset];
+        ptrace_poketext(tracee, regs.rip, next_ins);
+
+        ptrace_setregs(tracee, &regs);
+        ptrace_singlestep(tracee);
+        waitpid(tracee, &tracee_status, 0);
+        if (WIFEXITED(tracee_status))
+          break;
+
+        ((uint8_t *)&next_ins)[0] = INT3;
+        ptrace_poketext(tracee, regs.rip, next_ins);
+      }
       ptrace_cont(tracee);
-      tracee_status = wait_tracee_stop(tracee);
+      waitpid(tracee, &tracee_status, 0);
+      if (WIFEXITED(tracee_status))
+        break;
+
+      ptrace_getregs(tracee, &regs);
+      --regs.rip;
+      ptrace_setregs(tracee, &regs);
+      printf("** hit a breakpoint %p.\n", (void *)regs.rip);
+      disassemble(regs.rip);
+      continue;
+    }
+
+    if(!strcmp(tok, "jmp") && *line) {
+      uint64_t rip = strtoull(line, &line, 16);
+      if (errno)
+        continue;
+      ptrace_getregs(tracee, &regs);
+      regs.rip = rip;
+      ptrace_setregs(tracee, &regs);
+      printf("** jump to %p.\n", (void *)rip);
       continue;
     }
 
