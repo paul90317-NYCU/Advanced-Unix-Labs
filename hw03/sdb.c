@@ -112,23 +112,59 @@ static void disassemble(uint64_t rip)
   }
 }
 
-int main()
+pid_t load(char *argv[])
+{
+  struct user_regs_struct regs;
+  pid_t tracee = fork();
+  if (tracee == -1)
+  {
+    perror("fork()");
+  }
+
+  if (tracee == 0)
+  {
+    ptrace_traceme();
+    execvp(argv[1], argv + 1);
+    perror("execvp()");
+    exit(1);
+  }
+
+  int tracee_status;
+  waitpid(tracee, &tracee_status, 0);
+  if (WIFEXITED(tracee_status))
+    return -1;
+
+  get_text_section(argv[1], &text, &text_size, &offset);
+
+  ptrace_getregs(tracee, &regs);
+  printf("** program '%s' loaded. entry point %p\n", argv[1], (void *)regs.rip);
+  disassemble(regs.rip);
+  return tracee;
+}
+
+int main(int _argc, char *_argv[])
 {
   if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
   {
     return -1;
   }
+  char *argv[100] = {0};
 
   pid_t tracee = -1;
   int tracee_status;
   struct user_regs_struct regs;
+
+  if (_argc > 1)
+  {
+    memcpy(argv, _argv, _argc * sizeof(char *));
+    tracee = load(argv);
+  }
 
   uint64_t breaks[100] = {0};
   int n_breaks = 0;
 
   char *line = NULL;
   size_t line_size = 0;
-  char *argv[100];
 
   for (;;)
   {
@@ -147,24 +183,7 @@ int main()
 
     if (!strcmp(argv[0], "load"))
     {
-      tracee = fork();
-      if (tracee == 0)
-      {
-        ptrace_traceme();
-        execvp(argv[1], argv + 1);
-        perror("execvp()");
-        exit(1);
-      }
-
-      waitpid(tracee, &tracee_status, 0);
-      if (WIFEXITED(tracee_status))
-        return -1;
-
-      get_text_section(argv[1], &text, &text_size, &offset);
-
-      ptrace_getregs(tracee, &regs);
-      printf("** program '%s' loaded. entry point %p\n", argv[1], (void *)regs.rip);
-      disassemble(regs.rip);
+      tracee = load(argv);
       continue;
     }
 
