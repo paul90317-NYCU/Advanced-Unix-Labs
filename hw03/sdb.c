@@ -328,6 +328,13 @@ int main()
       continue;
     }
 
+    if (!strcmp(argv[0], "disasm"))
+    {
+      ptrace_getregs(tracee, &regs);
+      disassemble(regs.rip);
+      continue;
+    }
+
     printf("** unknown command [%s].\n", argv[0]);
   }
   puts("** the target program terminated.");
