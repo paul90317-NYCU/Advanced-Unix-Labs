@@ -28,3 +28,7 @@ void ptrace_getregs(pid_t tracee, struct user_regs_struct *regs) {
 void ptrace_setregs(pid_t tracee, struct user_regs_struct *regs) {
     ptrace(PTRACE_SETREGS, tracee, 0, regs);
 }
+
+void ptrace_syscall(pid_t tracee) {
+    ptrace(PTRACE_SYSCALL, tracee, 0, 0);
+}

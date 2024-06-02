@@ -165,6 +165,7 @@ int main(int _argc, char *_argv[])
 
   char *line = NULL;
   size_t line_size = 0;
+  int syscall_number = -1;
 
   for (;;)
   {
@@ -270,6 +271,7 @@ int main(int _argc, char *_argv[])
         printf("$r9  0x%016llx    $r10 0x%016llx    $r11 0x%016llx\n", regs.r9, regs.r10, regs.r11);
         printf("$r12 0x%016llx    $r13 0x%016llx    $r14 0x%016llx\n", regs.r12, regs.r13, regs.r14);
         printf("$r15 0x%016llx    $rip 0x%016llx    $eflags 0x%016llx\n", regs.r15, regs.rip, regs.eflags);
+        continue;
       }
       continue;
     }
@@ -361,6 +363,64 @@ int main(int _argc, char *_argv[])
     {
       ptrace_getregs(tracee, &regs);
       disassemble(regs.rip);
+      continue;
+    }
+
+    if (!strcmp(argv[0], "syscall"))
+    {
+      if (syscall_number == -1)
+      { // enter
+        ptrace_getregs(tracee, &regs);
+        long next_ins = ptrace_peektext(tracee, regs.rip);
+        if (((uint8_t *)&next_ins)[0] == INT3)
+        {
+          ((uint8_t *)&next_ins)[0] = text[regs.rip - offset];
+          ptrace_poketext(tracee, regs.rip, next_ins);
+
+          ptrace_setregs(tracee, &regs);
+          ptrace_singlestep(tracee);
+          waitpid(tracee, &tracee_status, 0);
+          if (WIFEXITED(tracee_status))
+            break;
+
+          ((uint8_t *)&next_ins)[0] = INT3;
+          ptrace_poketext(tracee, regs.rip, next_ins);
+        }
+        ptrace_syscall(tracee);
+        waitpid(tracee, &tracee_status, 0);
+        if (WIFEXITED(tracee_status))
+          break;
+
+        ptrace_getregs(tracee, &regs);
+
+        unsigned long long last_rip = regs.rip - 1;
+        long last_ins = ptrace_peektext(tracee, last_rip);
+        if (((uint8_t *)&last_ins)[0] == INT3)
+        {
+          printf("** hit a breakpoint %p.\n", (void *)last_rip);
+          disassemble(last_rip);
+          regs.rip = last_rip;
+          ptrace_setregs(tracee, &regs);
+          continue;
+        }
+        last_rip = regs.rip - 2;
+        syscall_number = regs.orig_rax;
+        printf("** enter a syscall(%d) at %p.\n", syscall_number, (void *)last_rip);
+        disassemble(last_rip);
+        continue;
+      }
+
+      // leave
+      ptrace_syscall(tracee);
+      waitpid(tracee, &tracee_status, 0);
+      if (WIFEXITED(tracee_status))
+        break;
+
+      ptrace_getregs(tracee, &regs);
+      unsigned long long last_rip = regs.rip - 2;
+      printf("** leave a syscall(%d) = %lld at %p.\n", syscall_number, regs.rax, (void *)last_rip);
+      disassemble(last_rip);
+      syscall_number = -1;
       continue;
     }
 
