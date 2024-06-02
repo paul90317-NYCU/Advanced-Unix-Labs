@@ -112,46 +112,20 @@ static void disassemble(uint64_t rip)
   }
 }
 
-int main(int argc, char *argv[])
+int main()
 {
-  if (argc < 2)
-  {
-    fprintf(stderr, "usage: %s program [args ...]\n", argv[0]);
-    return -1;
-  }
-
-  pid_t tracee = fork();
-  if (tracee == 0)
-  {
-    // tracee
-    ptrace_traceme();
-    execvp(argv[1], argv + 1);
-    perror("execvp()");
-    return -1;
-  }
-
-  // tracer
   if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
   {
     return -1;
   }
 
+  pid_t tracee = -1;
   int tracee_status;
-
-  waitpid(tracee, &tracee_status, 0);
-  if (WIFEXITED(tracee_status))
-    return -1;
-
-  get_text_section(argv[1], &text, &text_size, &offset);
-
   struct user_regs_struct regs;
-
-  ptrace_getregs(tracee, &regs);
-  printf("** program '%s' loaded. entry point %p\n", argv[1], (void *)regs.rip);
-  disassemble(regs.rip);
 
   char *line = NULL;
   size_t line_size = 0;
+  char *argv[100];
 
   for (;;)
   {
@@ -159,15 +133,52 @@ int main(int argc, char *argv[])
     if (getline(&line, &line_size, stdin) == -1)
       return 0;
 
-    char *tok = __strtok_r(line, " \n\r", &line);
-    if (!tok)
+    argv[0] = line;
+    for (int i = 0; i < 99 && argv[i]; ++i)
+    {
+      argv[i] = __strtok_r(argv[i], " \n\r", &argv[i + 1]);
+    }
+
+    if(!argv[0])
       continue;
 
-    if (!strcmp(tok, "break") && *line)
+    if (!strcmp(argv[0], "load"))
     {
-      uint64_t addr = strtoull(line, &line, 16);
+      tracee = fork();
+      if (tracee == 0)
+      {
+        ptrace_traceme();
+        execvp(argv[1], argv + 1);
+        perror("execvp()");
+        exit(1);
+      }
+
+      waitpid(tracee, &tracee_status, 0);
+      if (WIFEXITED(tracee_status))
+        return -1;
+
+      get_text_section(argv[1], &text, &text_size, &offset);
+
+      ptrace_getregs(tracee, &regs);
+      printf("** program '%s' loaded. entry point %p\n", argv[1], (void *)regs.rip);
+      disassemble(regs.rip);
+      continue;
+    }
+
+    if (tracee == -1)
+    {
+      puts("** please load a program first.");
+      continue;
+    }
+
+    if (!strcmp(argv[0], "break"))
+    {
+      if (!argv[1])
+        continue;
+      uint64_t addr = strtoull(argv[1], NULL, 16);
       if (errno)
         continue;
+
       long data = ptrace_peektext(tracee, addr);
       ((uint8_t *)&data)[0] = INT3;
       ptrace_poketext(tracee, addr, data);
@@ -175,7 +186,7 @@ int main(int argc, char *argv[])
       continue;
     }
 
-    if (!strcmp(tok, "si"))
+    if (!strcmp(argv[0], "si"))
     {
       ptrace_getregs(tracee, &regs);
       long next_ins = ptrace_peektext(tracee, regs.rip);
@@ -211,7 +222,7 @@ int main(int argc, char *argv[])
       continue;
     }
 
-    if (!strcmp(tok, "cont"))
+    if (!strcmp(argv[0], "cont"))
     {
       ptrace_getregs(tracee, &regs);
       long next_ins = ptrace_peektext(tracee, regs.rip);
@@ -242,18 +253,22 @@ int main(int argc, char *argv[])
       continue;
     }
 
-    if(!strcmp(tok, "jmp") && *line) {
-      uint64_t rip = strtoull(line, &line, 16);
+    if (!strcmp(argv[0], "jmp"))
+    {
+      if (!argv[1])
+        continue;
+      uint64_t rip = strtoull(argv[1], NULL, 16);
       if (errno)
         continue;
       ptrace_getregs(tracee, &regs);
       regs.rip = rip;
       ptrace_setregs(tracee, &regs);
       printf("** jump to %p.\n", (void *)rip);
+      disassemble(rip);
       continue;
     }
 
-    printf("** unknown command [%s].\n", tok);
+    printf("** unknown command [%s].\n", argv[0]);
   }
   printf("** the target program terminated.\n");
 
