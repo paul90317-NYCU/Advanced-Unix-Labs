@@ -1,0 +1,236 @@
+--- 1.out	2024-06-02 16:02:53.247926600 +0000
++++ 1.ans	2024-06-02 15:37:51.134558400 +0000
+@@ -1,14 +1,14 @@
+ (sdb) si
+ ** please load a program first.
+ (sdb) load ./hello
+-** program './hello' loaded. entry point 0x401000
+-si
++** program './hello' loaded. entry point 0x401000.
+ 	401000: f3 0f 1e fa                     endbr64	
+ 	401004: 55                              push	rbp
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+-(sdb) 	401004: 55                              push	rbp
++(sdb) si
++      401004: 55                                push      rbp
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+
+
+--- 2.out	2024-06-02 16:02:53.577844300 +0000
++++ 2.ans	2024-06-02 15:37:51.477237000 +0000
+@@ -1,11 +1,11 @@
+-** program './hello' loaded. entry point 0x401000
+-break 0x401005
++** program './hello' loaded. entry point 0x401000.
+ 	401000: f3 0f 1e fa                     endbr64	
+ 	401004: 55                              push	rbp
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+-(sdb) ** set a breakpoint at 0x401005.
++(sdb) break 0x401005
++** set a breakpoint at 0x401005.
+ (sdb) break 40102b
+ ** set a breakpoint at 0x40102b.
+ (sdb) info break
+@@ -19,14 +19,14 @@
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+ 	401014: 48 89 c6                        mov	rsi, rax
+ (sdb) si
+-** hit a breakpoint 0x401005.
++** hit a breakpoint at 0x401005.
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+ 	401014: 48 89 c6                        mov	rsi, rax
+ 	401017: bf 01 00 00 00                  mov	edi, 1
+ (sdb) cont
+-** hit a breakpoint 0x40102b.
++** hit a breakpoint at 0x40102b.
+ 	40102b: b8 01 00 00 00                  mov	eax, 1
+ 	401030: 0f 05                           syscall	
+ 	401032: c3                              ret	
+@@ -35,7 +35,7 @@
+ (sdb) info reg
+ $rax 0x0000000000402000    $rbx 0x0000000000000000    $rcx 0x0000000000000000
+ $rdx 0x000000000000000e    $rsi 0x0000000000402000    $rdi 0x0000000000000001
+-$rbp 0x00007ffed38480d8    $rsp 0x00007ffed38480d0    $r8  0x0000000000000000
++$rbp 0x00007ffe0e5cd5b8    $rsp 0x00007ffe0e5cd5b0    $r8  0x0000000000000000
+ $r9  0x0000000000000000    $r10 0x0000000000000000    $r11 0x0000000000000000
+ $r12 0x0000000000000000    $r13 0x0000000000000000    $r14 0x0000000000000000
+ $r15 0x0000000000000000    $rip 0x000000000040102b    $eflags 0x0000000000000202
+
+
+--- 3.out	2024-06-02 16:02:53.969800400 +0000
++++ 3.ans	2024-06-02 15:37:50.969553100 +0000
+@@ -1,14 +1,14 @@
+-** program './guess' loaded. entry point 0x40108b
+-break 0x4010de
++** program './guess' loaded. entry point 0x40108b.
+ 	40108b: f3 0f 1e fa                     endbr64	
+ 	40108f: 55                              push	rbp
+ 	401090: 48 89 e5                        mov	rbp, rsp
+ 	401093: 48 83 ec 10                     sub	rsp, 0x10
+ 	401097: ba 12 00 00 00                  mov	edx, 0x12
+-(sdb) ** set a breakpoint at 0x4010de.
++(sdb) break 0x4010de
++** set a breakpoint at 0x4010de.
+ (sdb) cont
+ guess a number > 1
+-** hit a breakpoint 0x4010de.
++** hit a breakpoint at 0x4010de.
+ 	4010de: 48 89 c7                        mov	rdi, rax
+ 	4010e1: e8 1a ff ff ff                  call	0x401000
+ 	4010e6: 85 c0                           test	eax, eax
+@@ -35,7 +35,7 @@
+ Num        Address   
+ 1          0x4010ea  
+ (sdb) cont
+-** hit a breakpoint 0x4010ea.
++** hit a breakpoint at 0x4010ea.
+ 	4010ea: ba 06 00 00 00                  mov	edx, 6
+ 	4010ef: 48 8d 05 1f 0f 00 00            lea	rax, [rip + 0xf1f]
+ 	4010f6: 48 89 c6                        mov	rsi, rax
+
+
+--- 4.out	2024-06-02 16:02:54.272355500 +0000
++++ 4.ans	2024-06-02 15:37:51.331529000 +0000
+@@ -1,22 +1,22 @@
+-** program './hello' loaded. entry point 0x401000
+-break 0x401005
++** program './hello' loaded. entry point 0x401000.
+ 	401000: f3 0f 1e fa                     endbr64	
+ 	401004: 55                              push	rbp
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+-(sdb) ** set a breakpoint at 0x401005.
++(sdb) break 0x401005
++** set a breakpoint at 0x401005.
+ (sdb) break 40102b
+ ** set a breakpoint at 0x40102b.
+ (sdb) cont
+-** hit a breakpoint 0x401005.
++** hit a breakpoint at 0x401005.
+ 	401005: 48 89 e5                        mov	rbp, rsp
+ 	401008: ba 0e 00 00 00                  mov	edx, 0xe
+ 	40100d: 48 8d 05 ec 0f 00 00            lea	rax, [rip + 0xfec]
+ 	401014: 48 89 c6                        mov	rsi, rax
+ 	401017: bf 01 00 00 00                  mov	edi, 1
+ (sdb) syscall
+-** hit a breakpoint 0x40102b.
++** hit a breakpoint at 0x40102b.
+ 	40102b: b8 01 00 00 00                  mov	eax, 1
+ 	401030: 0f 05                           syscall	
+ 	401032: c3                              ret	
+
+
+--- 5.out	2024-06-02 16:02:54.608983900 +0000
++++ 5.ans	2024-06-02 15:37:51.048118900 +0000
+@@ -1,16 +1,16 @@
+-** program './guess' loaded. entry point 0x40108b
+-patch 0x4010e8 0x9090 2
++** program './guess' loaded. entry point 0x40108b.
+ 	40108b: f3 0f 1e fa                     endbr64	
+ 	40108f: 55                              push	rbp
+ 	401090: 48 89 e5                        mov	rbp, rsp
+ 	401093: 48 83 ec 10                     sub	rsp, 0x10
+ 	401097: ba 12 00 00 00                  mov	edx, 0x12
+-(sdb) ** patch memory at address 0x4010e8.
++(sdb) patch 0x4010e8 0x9090 2
++** patch memory at address 0x4010e8.
+ (sdb) break 0x4010e8
+ ** set a breakpoint at 0x4010e8.
+ (sdb) cont
+ guess a number > 1
+-** hit a breakpoint 0x4010e8.
++** hit a breakpoint at 0x4010e8.
+ 	4010e8: 90                              nop	
+ 	4010e9: 90                              nop	
+ 	4010ea: ba 06 00 00 00                  mov	edx, 6
+@@ -21,7 +21,7 @@
+ (sdb) patch 4010ea 0x03ba 4
+ ** patch memory at address 0x4010ea.
+ (sdb) cont
+-** hit a breakpoint 0x4010ea.
++** hit a breakpoint at 0x4010ea.
+ 	4010ea: ba 03 00 00 00                  mov	edx, 3
+ 	4010ef: 48 8d 05 1f 0f 00 00            lea	rax, [rip + 0xf1f]
+ 	4010f6: 48 89 c6                        mov	rsi, rax
+
+
+--- 6.out	2024-06-02 16:02:54.926900800 +0000
++++ 6.ans	2024-06-02 15:37:51.394034800 +0000
+@@ -1,13 +1,13 @@
+-** program './guess' loaded. entry point 0x40108b
+-break 0x401128
++** program './guess' loaded. entry point 0x40108b.
+ 	40108b: f3 0f 1e fa                     endbr64	
+ 	40108f: 55                              push	rbp
+ 	401090: 48 89 e5                        mov	rbp, rsp
+ 	401093: 48 83 ec 10                     sub	rsp, 0x10
+ 	401097: ba 12 00 00 00                  mov	edx, 0x12
+-(sdb) ** set a breakpoint at 0x401128.
++(sdb) break 0x401128
++** set a breakpoint at 0x401128.
+ (sdb) cont
+-** hit a breakpoint 0x401128.
++** hit a breakpoint at 0x401128.
+ 	401128: b8 01 00 00 00                  mov	eax, 1
+ 	40112d: 0f 05                           syscall	
+ 	40112f: c3                              ret	
+@@ -15,7 +15,7 @@
+ 	401135: 0f 05                           syscall	
+ (sdb) cont
+ guess a number > 1
+-** hit a breakpoint 0x401128.
++** hit a breakpoint at 0x401128.
+ 	401128: b8 01 00 00 00                  mov	eax, 1
+ 	40112d: 0f 05                           syscall	
+ 	40112f: c3                              ret	
+
+
+--- 7.out	2024-06-02 16:02:55.175354600 +0000
++++ 7.ans	2024-06-02 15:37:50.906607800 +0000
+@@ -0,0 +1,35 @@
++** program './hello' loaded. entry point 0x401000.
++    401000: f3 0f 1e fa                         endbr64		
++    401004: 55                                  push		rbp
++    401005: 48 89 e5                            mov		rbp, rsp
++    401008: ba 0e 00 00 00                      mov		edx, 0xe
++    40100d: 48 8d 05 ec 0f 00 00                lea		rax, [rip + 0xfec]
++(sdb) break 0x401030
++** set a breakpoint at 0x401030.
++(sdb) break 0x401040
++** set a breakpoint at 0x401040.
++(sdb) syscall
++** hit a breakpoint at 0x401030.
++    401030: 0f 05                               syscall		
++    401032: c3                                  ret		
++    401033: b8 00 00 00 00                      mov		eax, 0
++    401038: 0f 05                               syscall		
++    40103a: c3                                  ret		
++(sdb) syscall
++** enter a syscall(1) at 0x401030.
++    401030: 0f 05                               syscall		
++    401032: c3                                  ret		
++    401033: b8 00 00 00 00                      mov		eax, 0
++    401038: 0f 05                               syscall		
++    40103a: c3                                  ret		
++(sdb) cont
++hello world!
++** hit a breakpoint at 0x401040.
++    401040: 0f 05                               syscall		
++** the address is out of the range of the text section.
++(sdb) syscall
++** enter a syscall(60) at 0x401040.
++    401040: 0f 05                               syscall		
++** the address is out of the range of the text section.
++(sdb) syscall
++** the target program terminated.
+
+

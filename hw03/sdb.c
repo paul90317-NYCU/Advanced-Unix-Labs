@@ -144,6 +144,7 @@ pid_t load(char *argv[])
 
 int main(int _argc, char *_argv[])
 {
+  // setvbuf(stdout, NULL, _IONBF, 0);
   if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
   {
     return -1;
@@ -421,6 +422,30 @@ int main(int _argc, char *_argv[])
       printf("** leave a syscall(%d) = %lld at %p.\n", syscall_number, regs.rax, (void *)last_rip);
       disassemble(last_rip);
       syscall_number = -1;
+      continue;
+    }
+
+    if (!strcmp(argv[0], "patch"))
+    {
+      uint64_t addr = strtoull(argv[1], NULL, 16);
+      uint64_t value = strtoull(argv[2], NULL, 16);
+      int n = strtoull(argv[3], NULL, 10);
+      if (n > 8 || n <= 0)
+        continue;
+      long data = ptrace_peektext(tracee, addr);
+      memcpy(&data, &value, n);
+      ptrace_poketext(tracee, addr, data);
+      memcpy(&text[addr - offset], &value, n);
+
+      // restore break points
+      for (int i = 0; i < n_breaks; ++i)
+        if (breaks[i] && breaks[i] >= addr && breaks[i] < addr + n)
+        {
+          data = ptrace_peektext(tracee, breaks[i]);
+          memset(&data, INT3, 1);
+          ptrace_poketext(tracee, breaks[i], data);
+        }
+      printf("** patch memory at address %p.\n", (void *)addr);
       continue;
     }
 
