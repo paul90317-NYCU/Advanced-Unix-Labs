@@ -1,0 +1,2 @@
+[logger] fopen("./file.txt" , "w") = 0x64cf93f052a0
+[logger] fwrite("Hello World!\n", 1, 10, 0x64cf93f052a0) = 10

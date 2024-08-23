@@ -1,0 +1,1 @@
+[logger] fopen("/etc/passwd", "r") = 0x64cf93f052a0

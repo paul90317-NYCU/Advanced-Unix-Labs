@@ -12,3 +12,5 @@ all: $(TARGET)
 clean:
 	rm -f *.o $(TARGET)
 
+install: sdb
+	cp sdb hw3_testcase/

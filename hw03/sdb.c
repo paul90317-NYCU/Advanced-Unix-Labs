@@ -103,7 +103,7 @@ static void disassemble(uint64_t rip)
     {
       snprintf(&bytes[j * 3], 4, "%2.2x ", insn[i].bytes[j]);
     }
-    printf("\t%" PRIx64 ": %-32s%s\t%s\n", insn[i].address, bytes, insn[i].mnemonic, insn[i].op_str);
+    printf("      %" PRIx64 ": %-32s%s\t%s\n", insn[i].address, bytes, insn[i].mnemonic, insn[i].op_str);
   }
   cs_free(insn, count);
   if (count < N_INS_PEEK)
@@ -137,7 +137,7 @@ pid_t load(char *argv[])
   get_text_section(argv[1], &text, &text_size, &offset);
 
   ptrace_getregs(tracee, &regs);
-  printf("** program '%s' loaded. entry point %p\n", argv[1], (void *)regs.rip);
+  printf("** program '%s' loaded. entry point %p.\n", argv[1], (void *)regs.rip);
   disassemble(regs.rip);
   return tracee;
 }
@@ -307,7 +307,7 @@ int main(int _argc, char *_argv[])
 
       next_ins = ptrace_peektext(tracee, regs.rip);
       if (((uint8_t *)&next_ins)[0] == INT3)
-        printf("** hit a breakpoint %p.\n", (void *)regs.rip);
+        printf("** hit a breakpoint at %p.\n", (void *)regs.rip);
 
       disassemble(regs.rip);
       continue;
@@ -339,7 +339,7 @@ int main(int _argc, char *_argv[])
       ptrace_getregs(tracee, &regs);
       --regs.rip;
       ptrace_setregs(tracee, &regs);
-      printf("** hit a breakpoint %p.\n", (void *)regs.rip);
+      printf("** hit a breakpoint at %p.\n", (void *)regs.rip);
       disassemble(regs.rip);
       continue;
     }
@@ -398,7 +398,7 @@ int main(int _argc, char *_argv[])
         long last_ins = ptrace_peektext(tracee, last_rip);
         if (((uint8_t *)&last_ins)[0] == INT3)
         {
-          printf("** hit a breakpoint %p.\n", (void *)last_rip);
+          printf("** hit a breakpoint at %p.\n", (void *)last_rip);
           disassemble(last_rip);
           regs.rip = last_rip;
           ptrace_setregs(tracee, &regs);

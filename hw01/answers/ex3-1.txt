@@ -1,0 +1,3 @@
+[logger] fopen("file.txt" , "w+") = 0x64cf93f052a0
+[logger] fwrite("PRIVATE_KEY\nABC123\n", 1, 12, 0x64cf93f052a0) = 12
+[logger] fread(0x7ffedd45dd60, 1, 11, 0x64cf93f052a0) = 0

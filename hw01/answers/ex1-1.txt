@@ -1,0 +1,1 @@
+[logger] fopen("/bin/grep", "r") = 0x0

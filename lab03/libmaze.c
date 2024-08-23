@@ -9,6 +9,8 @@
 #include "libmaze.h"
 #include "elf.h"
 
+static void * __stored_ptr = NULL;
+
 typedef void (*move_func_t)(maze_t *);
 typedef maze_t *(*maze_load_t)(const char *);
 typedef void *(*maze_get_ptr_t)();
@@ -17,18 +19,21 @@ size_t pagesize;
 
 int move_list[1200];
 move_func_t move_dirs[4];
+maze_load_t maze_load_f;
 void *main_handle = NULL;
 
-void preassign_got(int i){
-	move_func_t *got_entry = maze_get_ptr() + elf_moves[i];
-	void *get_entry_page = (void *)((size_t) got_entry & ~(pagesize - 1));
-	if(mprotect(get_entry_page, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
+void hijack(const void **GOT_entry, const void *func_ptr){
+	void *GOT_entry_page = (void *)((__uint64_t) GOT_entry & ~(pagesize - 1));
+	if(mprotect(GOT_entry_page, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
 		perror("mprotect");
-	*got_entry = move_dirs[move_list[i]];
+	*GOT_entry = func_ptr;
 }
+
+maze_t *my_maze_load(const char *fn);
 
 int
 maze_init() {
+	fprintf(stderr, "UP112_GOT_MAZE_CHALLENGE\n");
 	fprintf(stderr, "MAZE: library init - stored pointer = %p.\n", maze_get_ptr());
 	pagesize = sysconf(_SC_PAGE_SIZE);
 	main_handle = dlopen(NULL, RTLD_LAZY);
@@ -39,54 +44,36 @@ maze_init() {
 		move_dirs[i] = dlsym(main_handle, move_dirs_name[i]);
 		if(!move_dirs[i])
 			perror(dlerror());
-		void *get_entry_page = (void *)((size_t) move_dirs[i] & ~(pagesize - 1));
-		if(mprotect(get_entry_page, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
-			perror("mprotect");
 	}
+	maze_load_f = dlsym(main_handle, "maze_load");
 	dlclose(main_handle);
+	hijack(maze_get_ptr() + elf_maze_load, my_maze_load);
 	return 0;
 }
 
 void DFS(maze_t *mz);
 
+void
+maze_set_ptr(void *ptr) {
+	__stored_ptr = ptr;
+}
+
+void *
+maze_get_ptr() {
+	return __stored_ptr;
+}
+
 maze_t *
-maze_load(const char *fn) {
-	maze_t *mz = NULL;
-	FILE *fp = NULL;
-	int i, j, k;
-	//
-	if((fp = fopen(fn, "rt")) == NULL) {
-		fprintf(stderr, "MAZE: fopen failed - %s.\n", strerror(errno));
-		return NULL;
-	}
-	if((mz = (maze_t*) malloc(sizeof(maze_t))) == NULL) {
-		fprintf(stderr, "MAZE: alloc failed - %s.\n", strerror(errno));
-		goto err_quit;
-	}
-	if(fscanf(fp, "%d %d %d %d %d %d", &mz->w, &mz->h, &mz->sx, &mz->sy, &mz->ex, &mz->ey) != 6) {
-		fprintf(stderr, "MAZE: load dimensions failed - %s.\n", strerror(errno));
-		goto err_quit;
-	}
-	mz->cx = mz->sx;
-	mz->cy = mz->sy;
-	for(i = 0; i < mz->h; i++) {
-		for(j = 0; j < mz->w; j++) {
-			if(fscanf(fp, "%d", &k) != 1) {
-				fprintf(stderr, "MAZE: load blk (%d, %d) failed - %s.\n", j, i, strerror(errno));
-				goto err_quit;
-			}
-			mz->blk[i][j] = k<<20;
-		}
-	}
-	fclose(fp);
-	fprintf(stderr, "MAZE: loaded [%d, %d]: (%d, %d) -> (%d, %d)\n",
-		mz->w, mz->h, mz->sx, mz->sy, mz->ex, mz->ey);
-	DFS(mz);
+my_maze_load(const char *fn) {
+	maze_t *mz = maze_load_f(fn);
+	if(mz)
+		DFS(mz);
 	return mz;
-err_quit:
-	if(mz) free(mz);
-	if(fp) fclose(fp);
-	return NULL;
+}
+
+void
+maze_free(maze_t *mz) {
+	free(mz);
 }
 
 static int _dirx[] = { 0, 0, -1, 1 };
@@ -132,6 +119,6 @@ void DFS(maze_t *mz){
     move_count = 0;
 	dfs(mz, mz->sy, mz->sx);
 	for(int i = 0; i < move_count; ++i){
-		preassign_got(i);
+		hijack(maze_get_ptr() + elf_moves[i],move_dirs[move_list[i]]);
 	}
 }

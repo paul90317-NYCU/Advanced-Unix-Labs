@@ -19,4 +19,4 @@ ldd:
 	ldd maze
 
 clean:
-	rm libmaze.so
+	rm libmaze.so libmaze_dummy.so mazetest

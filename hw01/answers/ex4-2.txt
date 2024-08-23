@@ -1,0 +1,1 @@
+[logger] getaddrinfo("www.google.com" , (nil), 0x7ffd88b905f0,0x7ffd88b905b8) = 0
